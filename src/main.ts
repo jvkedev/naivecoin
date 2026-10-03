@@ -1,7 +1,9 @@
 import express from "express";
 import { getBlockchain, mineBlock } from "./blockchain.js";
+import { connectToPeer, getPeers, initP2PServer } from "./p2p.js";
 
-const PORT = 3001;
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3001;
+const P2P_PORT = Number(process.env.P2P_PORT) || 6001;
 
 const app = express();
 
@@ -31,6 +33,27 @@ app.post("/mineBlock", (req, res) => {
   return res.status(201).json(block);
 });
 
-app.listen(PORT, () => {
-  console.log(`Listening on http://localhost:${PORT}`);
+app.post("/addPeer", (req, res) => {
+  const peer = req.body?.peer;
+
+  if (!peer || typeof peer !== "string") {
+    return res.status(400).json({
+      message: "Peer is missing",
+    });
+  }
+
+  connectToPeer(peer);
+  return res.status(200).json({
+    message: "Connecting to peer",
+  });
 });
+
+app.get("/peers", (req, res) => {
+  return res.status(200).json(getPeers());
+});
+
+app.listen(HTTP_PORT, () => {
+  console.log(`HTTP listening on http://localhost:${HTTP_PORT}`);
+});
+
+initP2PServer(P2P_PORT);
