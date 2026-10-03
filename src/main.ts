@@ -16,7 +16,7 @@ app.post("/mineBlock", (req, res) => {
 
   if (!data || typeof data !== "string") {
     return res.status(400).json({
-      messsage: "Data is missing",
+      message: "Data is missing",
     });
   }
 

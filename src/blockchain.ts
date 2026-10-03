@@ -111,7 +111,7 @@ const addBlock = (newBlock: Block): boolean => {
 };
 
 const mineBlock = (data: string): Block | null => {
-  let block = generateNextBlock(data);
+  const block = generateNextBlock(data);
 
   if (!addBlock(block)) return null;
 
