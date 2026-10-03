@@ -1,5 +1,5 @@
 import express from "express";
-import { blockchain, mineBlock } from "./blockchain.js";
+import { getBlockchain, mineBlock } from "./blockchain.js";
 
 const PORT = 3001;
 
@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 
 app.get("/blocks", (req, res) => {
-  res.status(200).json(blockchain);
+  res.status(200).json(getBlockchain());
 });
 
 app.post("/mineBlock", (req, res) => {

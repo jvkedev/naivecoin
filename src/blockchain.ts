@@ -34,7 +34,7 @@ const genesisBlock = new Block(
   "my genesis block",
 );
 
-const blockchain: Block[] = [genesisBlock];
+let blockchain: Block[] = [genesisBlock];
 
 const getLatestBlock = (): Block => {
   const latest = blockchain[blockchain.length - 1];
@@ -118,11 +118,24 @@ const mineBlock = (data: string): Block | null => {
   return block;
 };
 
+const getBlockchain = (): Block[] => blockchain;
+
+const replaceChain = (newChain: Block[]): boolean => {
+  if (isValidChain(newChain)) return false;
+  if (newChain.length <= blockchain.length) return false;
+
+  blockchain = newChain;
+
+  return true;
+};
+
 export {
   Block,
-  blockchain,
+  getBlockchain,
+  getLatestBlock,
   generateNextBlock,
   addBlock,
   isValidChain,
   mineBlock,
+  replaceChain,
 };
