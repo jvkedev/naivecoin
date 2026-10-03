@@ -110,9 +110,19 @@ const addBlock = (newBlock: Block): boolean => {
   return false;
 };
 
-addBlock(generateNextBlock("first block"));
-addBlock(generateNextBlock("second block"));
-console.log(isValidChain(blockchain));
+const mineBlock = (data: string): Block | null => {
+  let block = generateNextBlock(data);
 
-blockchain[1]!.data = "hacked";
-console.log(isValidChain(blockchain));
+  if (!addBlock(block)) return null;
+
+  return block;
+};
+
+export {
+  Block,
+  blockchain,
+  generateNextBlock,
+  addBlock,
+  isValidChain,
+  mineBlock,
+};

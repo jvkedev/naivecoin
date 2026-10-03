@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/blockchain.ts",
+    "dev": "tsx watch src/main.ts",
     "check": "tsc"
   },
   "keywords": [],
@@ -12,10 +12,12 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
