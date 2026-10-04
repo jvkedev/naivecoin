@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { getBlockchain, getLatestBlock } from "./blockchain.js";
 
 const sockets: WebSocket[] = [];
 
@@ -18,6 +19,55 @@ const connectToPeer = (peerUrl: string): void => {
   }
 };
 
+enum MessageType {
+  QUERY_LATEST = 0,
+  QUERY_ALL = 1,
+  RESPONSE_BLOCKCHAIN = 2,
+}
+
+interface Message {
+  type: MessageType;
+  data: string | null;
+}
+
+const send = (ws: WebSocket, message: Message): void => {
+  ws.send(JSON.stringify(message));
+};
+
+const initMessageHandler = (ws: WebSocket): void => {
+  ws.on("message", (raw) => {
+    try {
+      const message = JSON.parse(raw.toString());
+      console.log("recieved message type:", message.type);
+
+      switch (message.type) {
+        case MessageType.QUERY_LATEST:
+          send(ws, {
+            type: MessageType.RESPONSE_BLOCKCHAIN,
+            data: JSON.stringify([getLatestBlock()]),
+          });
+          break;
+
+        case MessageType.QUERY_ALL:
+          send(ws, {
+            type: MessageType.RESPONSE_BLOCKCHAIN,
+            data: JSON.stringify(getBlockchain()),
+          });
+          break;
+
+        case MessageType.RESPONSE_BLOCKCHAIN:
+          console.log("Recieved blocks:", message.data);
+          break;
+
+        default:
+          console.log("Unknown message type");
+      }
+    } catch {
+      console.log("Bad message");
+    }
+  });
+};
+
 const initConnection = (ws: WebSocket): void => {
   sockets.push(ws);
   console.log("Peer connected");
@@ -29,6 +79,9 @@ const initConnection = (ws: WebSocket): void => {
     if (index !== -1) sockets.splice(index, 1);
     console.log("Peer disconnected");
   });
+
+  initMessageHandler(ws);
+  send(ws, { type: MessageType.QUERY_LATEST, data: null });
 };
 
 const getPeers = (): string[] => {
