@@ -1,4 +1,4 @@
-import CryptoJS from "crypto-js";
+import { createHash } from "node:crypto";
 
 class Block {
   constructor(
@@ -16,12 +16,9 @@ const calculateHash = (
   timestamp: number,
   data: string,
 ): string => {
-  const separator = "||";
-  const combinedString = `${index}${separator}${previousHash}${separator}${timestamp}${separator}${data}`;
+  const combined = `${index}||${previousHash}||${timestamp}||${data}`;
 
-  const hash = CryptoJS.SHA256(combinedString);
-
-  return hash.toString(CryptoJS.enc.Hex); // Hexadecimal
+  return createHash("sha256").update(combined).digest("hex");
 };
 
 const genesisTimestamp = 1465154705;
