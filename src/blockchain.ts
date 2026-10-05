@@ -12,7 +12,7 @@ class Block {
 
 const calculateHash = (
   index: number,
-  previousHash: string,
+  previousHash: string,  
   timestamp: number,
   data: string,
 ): string => {
@@ -118,7 +118,7 @@ const mineBlock = (data: string): Block | null => {
 const getBlockchain = (): Block[] => blockchain;
 
 const replaceChain = (newChain: Block[]): boolean => {
-  if (isValidChain(newChain)) return false;
+  if (!isValidChain(newChain)) return false;
   if (newChain.length <= blockchain.length) return false;
 
   blockchain = newChain;
