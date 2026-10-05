@@ -1,6 +1,11 @@
 import express from "express";
 import { getBlockchain, mineBlock } from "./blockchain.js";
-import { connectToPeer, getPeers, initP2PServer } from "./p2p.js";
+import {
+  broadcastLatest,
+  connectToPeer,
+  getPeers,
+  initP2PServer,
+} from "./p2p.js";
 
 const HTTP_PORT = Number(process.env.HTTP_PORT) || 3001;
 const P2P_PORT = Number(process.env.P2P_PORT) || 6001;
@@ -29,6 +34,8 @@ app.post("/mineBlock", (req, res) => {
       message: "Could not create block",
     });
   }
+
+  broadcastLatest();
 
   return res.status(201).json(block);
 });

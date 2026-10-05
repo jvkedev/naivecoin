@@ -34,6 +34,21 @@ const send = (ws: WebSocket, message: Message): void => {
   ws.send(JSON.stringify(message));
 };
 
+const broadcast = (message: Message): void => {
+  for (const socket of sockets) {
+    if (socket.readyState === WebSocket.OPEN) {
+      send(socket, message);
+    }
+  }
+};
+
+const broadcastLatest = (): void => {
+  broadcast({
+    type: MessageType.RESPONSE_BLOCKCHAIN,
+    data: JSON.stringify([getLatestBlock()]),
+  });
+};
+
 const initMessageHandler = (ws: WebSocket): void => {
   ws.on("message", (raw) => {
     try {
@@ -87,4 +102,4 @@ const getPeers = (): string[] => {
   return [...sockets].map(() => "peer");
 };
 
-export { initP2PServer, connectToPeer, getPeers };
+export { initP2PServer, connectToPeer, getPeers, broadcastLatest };
