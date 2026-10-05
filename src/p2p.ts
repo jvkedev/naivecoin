@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { getBlockchain, getLatestBlock } from "./blockchain.js";
 
-const sockets: WebSocket[] = [];
+const sockets = new Set<WebSocket>();
 
 const initP2PServer = (p2pPort: number): void => {
   const server = new WebSocketServer({ port: p2pPort });
@@ -38,7 +38,7 @@ const initMessageHandler = (ws: WebSocket): void => {
   ws.on("message", (raw) => {
     try {
       const message = JSON.parse(raw.toString());
-      console.log("recieved message type:", message.type);
+      console.log("received message type:", message.type);
 
       switch (message.type) {
         case MessageType.QUERY_LATEST:
@@ -56,7 +56,7 @@ const initMessageHandler = (ws: WebSocket): void => {
           break;
 
         case MessageType.RESPONSE_BLOCKCHAIN:
-          console.log("Recieved blocks:", message.data);
+          console.log("Received blocks:", message.data);
           break;
 
         default:
@@ -69,14 +69,13 @@ const initMessageHandler = (ws: WebSocket): void => {
 };
 
 const initConnection = (ws: WebSocket): void => {
-  sockets.push(ws);
+  sockets.add(ws);
   console.log("Peer connected");
 
   ws.on("error", () => console.log("Peer connection error"));
 
   ws.on("close", () => {
-    const index = sockets.indexOf(ws);
-    if (index !== -1) sockets.splice(index, 1);
+    sockets.delete(ws);
     console.log("Peer disconnected");
   });
 
@@ -85,7 +84,7 @@ const initConnection = (ws: WebSocket): void => {
 };
 
 const getPeers = (): string[] => {
-  return sockets.map(() => "peer");
+  return [...sockets].map(() => "peer");
 };
 
 export { initP2PServer, connectToPeer, getPeers };
