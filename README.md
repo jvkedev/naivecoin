@@ -31,7 +31,7 @@ A small blockchain with a peer-to-peer network, built from scratch in TypeScript
 ## Getting started
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/jvkedev/naivecoin.git
 cd naivecoin
 npm install
 ```
