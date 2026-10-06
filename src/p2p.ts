@@ -1,5 +1,12 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { getBlockchain, getLatestBlock } from "./blockchain.js";
+import {
+  type Block,
+  addBlock,
+  getBlockchain,
+  getLatestBlock,
+  mineBlock,
+  replaceChain,
+} from "./blockchain.js";
 
 const sockets = new Set<WebSocket>();
 
@@ -49,6 +56,26 @@ const broadcastLatest = (): void => {
   });
 };
 
+const handleBlockchainResponse = (received: Block[], ws: WebSocket): void => {
+  const theirs = received[received.length - 1];
+  if (theirs === undefined) return;
+
+  const mine = getLatestBlock();
+
+  if (theirs.index <= mine.index) return;
+
+  if (theirs.previousHash === mine.hash) {
+    if (addBlock(theirs)) broadcastLatest();
+  } else if (received.length === 1) {
+    send(ws, {
+      type: MessageType.QUERY_ALL,
+      data: null,
+    });
+  } else {
+    if (replaceChain(received)) broadcastLatest();
+  }
+};
+
 const initMessageHandler = (ws: WebSocket): void => {
   ws.on("message", (raw) => {
     try {
@@ -71,7 +98,9 @@ const initMessageHandler = (ws: WebSocket): void => {
           break;
 
         case MessageType.RESPONSE_BLOCKCHAIN:
-          console.log("Received blocks:", message.data);
+          const received = JSON.parse(message.data);
+          if (!Array.isArray(received)) break;
+          handleBlockchainResponse(received, ws);
           break;
 
         default:
