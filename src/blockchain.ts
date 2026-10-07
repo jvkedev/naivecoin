@@ -139,9 +139,18 @@ const generateNextBlock = (data: string): Block => {
   );
 };
 
+const isValidTimestamp = (newBlock: Block, previousBlock: Block): boolean => {
+  const now = Math.floor(Date.now() / 1000);
+  return (
+    previousBlock.timestamp - 60 < newBlock.timestamp &&
+    newBlock.timestamp - 60 < now
+  );
+};
+
 const isValidBlock = (newBlock: Block, previousBlock: Block): boolean => {
   if (newBlock.index !== previousBlock.index + 1) return false;
   if (newBlock.previousHash !== previousBlock.hash) return false;
+  if (!isValidTimestamp(newBlock, previousBlock)) return false;
   if (
     calculateHash(
       newBlock.index,
