@@ -4,7 +4,6 @@ import {
   addBlock,
   getBlockchain,
   getLatestBlock,
-  mineBlock,
   replaceChain,
 } from "./blockchain.js";
 
@@ -97,11 +96,12 @@ const initMessageHandler = (ws: WebSocket): void => {
           });
           break;
 
-        case MessageType.RESPONSE_BLOCKCHAIN:
+        case MessageType.RESPONSE_BLOCKCHAIN: {
           const received = JSON.parse(message.data);
           if (!Array.isArray(received)) break;
           handleBlockchainResponse(received, ws);
           break;
+        }
 
         default:
           console.log("Unknown message type");

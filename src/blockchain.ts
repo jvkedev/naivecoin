@@ -7,28 +7,77 @@ class Block {
     public previousHash: string,
     public timestamp: number,
     public data: string,
+    public difficulty: number,
+    public nonce: number,
   ) {}
 }
 
 const calculateHash = (
   index: number,
-  previousHash: string,  
+  previousHash: string,
   timestamp: number,
   data: string,
+  difficulty: number,
+  nonce: number,
 ): string => {
-  const combined = `${index}||${previousHash}||${timestamp}||${data}`;
+  const combined = `${index}||${previousHash}||${timestamp}||${data}||${difficulty}||${nonce}`;
 
   return createHash("sha256").update(combined).digest("hex");
+};
+
+const hashMatchedDifficulty = (hash: string, difficulty: number): boolean => {
+  const binaryHash = BigInt("0x" + hash)
+    .toString(2)
+    .padStart(256, "0");
+
+  return binaryHash.startsWith("0".repeat(difficulty));
+};
+
+const findBlock = (
+  index: number,
+  previousHash: string,
+  timestamp: number,
+  data: string,
+  difficulty: number,
+): Block => {
+  let nonce = 0;
+
+  while (true) {
+    const hash = calculateHash(
+      index,
+      previousHash,
+      timestamp,
+      data,
+      difficulty,
+      nonce,
+    );
+
+    if (hashMatchedDifficulty(hash, difficulty)) {
+      return new Block(
+        index,
+        hash,
+        previousHash,
+        timestamp,
+        data,
+        difficulty,
+        nonce,
+      );
+    }
+
+    nonce++;
+  }
 };
 
 const genesisTimestamp = 1465154705;
 
 const genesisBlock = new Block(
   0,
-  calculateHash(0, "", genesisTimestamp, "my genesis block"),
+  calculateHash(0, "", genesisTimestamp, "my genesis block", 0, 0),
   "",
   genesisTimestamp,
   "my genesis block",
+  0,
+  0,
 );
 
 let blockchain: Block[] = [genesisBlock];
@@ -43,24 +92,20 @@ const getLatestBlock = (): Block => {
   return latest;
 };
 
+const getDifficulty = (): number => 4;
+
 const generateNextBlock = (data: string): Block => {
   const latestBlock = getLatestBlock();
-
   const nextIndex = latestBlock.index + 1;
-
   const timestamp = Math.floor(Date.now() / 1000);
 
-  const hash = calculateHash(nextIndex, latestBlock.hash, timestamp, data);
-
-  const newBlock = new Block(
+  return findBlock(
     nextIndex,
-    hash,
     latestBlock.hash,
     timestamp,
     data,
+    getDifficulty(),
   );
-
-  return newBlock;
 };
 
 const isValidBlock = (newBlock: Block, previousBlock: Block): boolean => {
@@ -72,9 +117,13 @@ const isValidBlock = (newBlock: Block, previousBlock: Block): boolean => {
       newBlock.previousHash,
       newBlock.timestamp,
       newBlock.data,
+      newBlock.difficulty,
+      newBlock.nonce,
     ) !== newBlock.hash
   )
     return false;
+
+  if (!hashMatchedDifficulty(newBlock.hash, newBlock.difficulty)) return false;
 
   return true;
 };
