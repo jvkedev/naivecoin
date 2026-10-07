@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+const BLOCK_GENERATION_INTERVAL = 10;
+const DIFFICULTY_ADJUSTMENT_INTERVAL = 5;
+
 class Block {
   constructor(
     public index: number,
@@ -72,11 +75,11 @@ const genesisTimestamp = 1465154705;
 
 const genesisBlock = new Block(
   0,
-  calculateHash(0, "", genesisTimestamp, "my genesis block", 0, 0),
+  calculateHash(0, "", genesisTimestamp, "my genesis block", 4, 0),
   "",
   genesisTimestamp,
   "my genesis block",
-  0,
+  4,
   0,
 );
 
@@ -92,7 +95,35 @@ const getLatestBlock = (): Block => {
   return latest;
 };
 
-const getDifficulty = (): number => 4;
+const getAdjustedDifficulty = (chain: Block[], latest: Block): number => {
+  const prevAdjustmentBlock =
+    chain[chain.length - DIFFICULTY_ADJUSTMENT_INTERVAL];
+
+  if (prevAdjustmentBlock === undefined) return latest.difficulty;
+
+  const timeExpected =
+    BLOCK_GENERATION_INTERVAL * DIFFICULTY_ADJUSTMENT_INTERVAL;
+  const timetaken = latest.timestamp - prevAdjustmentBlock.timestamp;
+
+  if (timetaken < timeExpected / 2) return latest.difficulty + 1;
+  if (timetaken > timeExpected * 2) return Math.max(0, latest.difficulty - 1);
+
+  return latest.difficulty;
+};
+
+const getDifficulty = (chain: Block[]): number => {
+  const latest = chain[chain.length - 1];
+  if (latest === undefined) throw new Error("Blockchain is empty");
+
+  if (
+    latest.index % DIFFICULTY_ADJUSTMENT_INTERVAL === 0 &&
+    latest.index !== 0
+  ) {
+    return getAdjustedDifficulty(chain, latest);
+  }
+
+  return latest.difficulty;
+};
 
 const generateNextBlock = (data: string): Block => {
   const latestBlock = getLatestBlock();
@@ -104,7 +135,7 @@ const generateNextBlock = (data: string): Block => {
     latestBlock.hash,
     timestamp,
     data,
-    getDifficulty(),
+    getDifficulty(blockchain),
   );
 };
 
@@ -142,18 +173,19 @@ const isValidChain = (chain: Block[]): boolean => {
     if (current === undefined || previous === undefined) return false;
 
     if (!isValidBlock(current, previous)) return false;
+    if (current.difficulty !== getDifficulty(chain.slice(0, i))) return false;
   }
 
   return true;
 };
 
 const addBlock = (newBlock: Block): boolean => {
-  if (isValidBlock(newBlock, getLatestBlock())) {
-    blockchain.push(newBlock);
-    return true;
-  }
+  if (!isValidBlock(newBlock, getLatestBlock())) return false;
 
-  return false;
+  if (newBlock.difficulty !== getDifficulty(blockchain)) return false;
+
+  blockchain.push(newBlock);
+  return true;
 };
 
 const mineBlock = (data: string): Block | null => {
