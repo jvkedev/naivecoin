@@ -198,9 +198,18 @@ const mineBlock = (data: string): Block | null => {
 
 const getBlockchain = (): Block[] => blockchain;
 
+const getTotalWork = (chain: Block[]): number => {
+  let total = 0;
+  for (const block of chain) {
+    total += 2 ** block.difficulty;
+  }
+
+  return total;
+};
+
 const replaceChain = (newChain: Block[]): boolean => {
   if (!isValidChain(newChain)) return false;
-  if (newChain.length <= blockchain.length) return false;
+  if (getTotalWork(newChain) <= getTotalWork(blockchain)) return false;
 
   blockchain = newChain;
 
