@@ -53,4 +53,20 @@ const getCoinbaseTransaction = (
   return tx;
 };
 
-export { TxOut, TxIn, Transaction, getTransactionId, getCoinbaseTransaction };
+class UnspentTxOut {
+  constructor(
+    public readonly txOutId: string,
+    public readonly txOutIndex: number,
+    public readonly address: string,
+    public readonly amount: number,
+  ) {}
+}
+
+export {
+  TxOut,
+  TxIn,
+  Transaction,
+  getTransactionId,
+  getCoinbaseTransaction,
+  UnspentTxOut,
+};
