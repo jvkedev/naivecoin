@@ -28,6 +28,10 @@ const calculateHash = (
   return createHash("sha256").update(combined).digest("hex");
 };
 
+/*
+ * Converts the hash from hexadecimal into binary.
+ * Checks if the number of leading zeros matches the required difficulty.
+ */
 const hashMatchedDifficulty = (hash: string, difficulty: number): boolean => {
   const binaryHash = BigInt("0x" + hash)
     .toString(2)
@@ -71,7 +75,7 @@ const findBlock = (
   }
 };
 
-const genesisTimestamp = 1465154705;
+const genesisTimestamp = 1767225600;
 
 const genesisBlock = new Block(
   0,
@@ -95,6 +99,12 @@ const getLatestBlock = (): Block => {
   return latest;
 };
 
+/*
+ * If blocks are mined too quickly (less than half the expected time),
+ * increase the difficulty by 1.
+ * If blocks are mined too slowly (more than twice the expected time),
+ * decrease the difficulty by 1, but never below 0.
+ */
 const getAdjustedDifficulty = (chain: Block[], latest: Block): number => {
   const prevAdjustmentBlock =
     chain[chain.length - DIFFICULTY_ADJUSTMENT_INTERVAL];
