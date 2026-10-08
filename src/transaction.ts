@@ -62,6 +62,31 @@ class UnspentTxOut {
   ) {}
 }
 
+const updateUnspentTxOuts = (
+  newTransactions: Transaction[],
+  UnspentTxOuts: UnspentTxOut[],
+): UnspentTxOut[] => {
+  const newUnspent: UnspentTxOut[] = newTransactions.flatMap((tx) =>
+    tx.txOuts.map(
+      (txOut, index) =>
+        new UnspentTxOut(tx.id, index, txOut.address, txOut.amount),
+    ),
+  );
+
+  const consumed: UnspentTxOut[] = newTransactions
+    .flatMap((tx) => tx.txIns)
+    .map((txIn) => new UnspentTxOut(txIn.txOutId, txIn.txOutIndex, "", 0));
+
+  const remaining = UnspentTxOuts.filter(
+    (u) =>
+      !consumed.some(
+        (c) => c.txOutId === u.txOutId && c.txOutIndex === u.txOutIndex,
+      ),
+  );
+
+  return { ...remaining, ...newUnspent };
+};
+
 export {
   TxOut,
   TxIn,
@@ -69,4 +94,5 @@ export {
   getTransactionId,
   getCoinbaseTransaction,
   UnspentTxOut,
+  updateUnspentTxOuts
 };
