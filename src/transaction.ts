@@ -36,4 +36,21 @@ const getTransactionId = (transaction: Transaction): string => {
     .digest("hex");
 };
 
-export { TxOut, TxIn, Transaction, getTransactionId };
+const COIN_BASE_AMOUNT = 50;
+
+const getCoinbaseTransaction = (
+  address: string,
+  blockIndex: number,
+): Transaction => {
+  const tx = new Transaction(
+    "",
+    [new TxIn("", blockIndex)],
+    [new TxOut(address, COIN_BASE_AMOUNT)],
+  );
+
+  tx.id = getTransactionId(tx);
+
+  return tx;
+};
+
+export { TxOut, TxIn, Transaction, getTransactionId, getCoinbaseTransaction };
