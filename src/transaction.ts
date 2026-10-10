@@ -84,7 +84,11 @@ const updateUnspentTxOuts = (
       ),
   );
 
-  return { ...remaining, ...newUnspent };
+  return [...remaining, ...newUnspent];
+};
+
+const isValidTransactionId = (transaction: Transaction): boolean => {
+  return getTransactionId(transaction) === transaction.id;
 };
 
 export {
@@ -94,5 +98,6 @@ export {
   getTransactionId,
   getCoinbaseTransaction,
   UnspentTxOut,
-  updateUnspentTxOuts
+  updateUnspentTxOuts,
+  isValidTransactionId,
 };
