@@ -3,6 +3,7 @@ import {
   type Transaction,
   UnspentTxOut,
   updateUnspentTxOuts,
+  validateBlockTransactions,
 } from "./transaction.js";
 
 const BLOCK_GENERATION_INTERVAL = 10;
@@ -191,6 +192,8 @@ const isValidChain = (chain: Block[]): boolean => {
 
   if (first.hash !== genesisBlock.hash) return false;
 
+  let notebook: UnspentTxOut[] = [];
+
   for (let i = 1; i < chain.length; i++) {
     const current = chain[i];
     const previous = chain[i - 1];
@@ -199,6 +202,11 @@ const isValidChain = (chain: Block[]): boolean => {
 
     if (!isValidBlock(current, previous)) return false;
     if (current.difficulty !== getDifficulty(chain.slice(0, i))) return false;
+    if (!validateBlockTransactions(current.data, notebook, current.index)) {
+      return false;
+    }
+
+    notebook = updateUnspentTxOuts(current.data, notebook);
   }
 
   return true;
@@ -218,6 +226,12 @@ const addBlock = (newBlock: Block): boolean => {
   if (!isValidBlock(newBlock, getLatestBlock())) return false;
 
   if (newBlock.difficulty !== getDifficulty(blockchain)) return false;
+
+  if (
+    !validateBlockTransactions(newBlock.data, UnspentTxOuts, newBlock.index)
+  ) {
+    return false;
+  }
 
   blockchain.push(newBlock);
   UnspentTxOuts = updateUnspentTxOuts(newBlock.data, UnspentTxOuts);
