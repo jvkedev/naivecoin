@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Transaction } from "./transaction.js";
 
 const BLOCK_GENERATION_INTERVAL = 10;
 const DIFFICULTY_ADJUSTMENT_INTERVAL = 5;
@@ -9,7 +10,7 @@ class Block {
     public hash: string,
     public previousHash: string,
     public timestamp: number,
-    public data: string,
+    public data: Transaction[],
     public difficulty: number,
     public nonce: number,
   ) {}
@@ -19,11 +20,11 @@ const calculateHash = (
   index: number,
   previousHash: string,
   timestamp: number,
-  data: string,
+  data: Transaction[],
   difficulty: number,
   nonce: number,
 ): string => {
-  const combined = `${index}||${previousHash}||${timestamp}||${data}||${difficulty}||${nonce}`;
+  const combined = `${index}||${previousHash}||${timestamp}||${JSON.stringify(data)}||${difficulty}||${nonce}`;
 
   return createHash("sha256").update(combined).digest("hex");
 };
@@ -44,7 +45,7 @@ const findBlock = (
   index: number,
   previousHash: string,
   timestamp: number,
-  data: string,
+  data: Transaction[],
   difficulty: number,
 ): Block => {
   let nonce = 0;
@@ -79,10 +80,10 @@ const genesisTimestamp = 1767225600;
 
 const genesisBlock = new Block(
   0,
-  calculateHash(0, "", genesisTimestamp, "my genesis block", 4, 0),
+  calculateHash(0, "", genesisTimestamp, [], 4, 0),
   "",
   genesisTimestamp,
-  "my genesis block",
+  [],
   4,
   0,
 );
@@ -135,7 +136,7 @@ const getDifficulty = (chain: Block[]): number => {
   return latest.difficulty;
 };
 
-const generateNextBlock = (data: string): Block => {
+const generateNextBlock = (data: Transaction[]): Block => {
   const latestBlock = getLatestBlock();
   const nextIndex = latestBlock.index + 1;
   const timestamp = Math.floor(Date.now() / 1000);
@@ -207,7 +208,7 @@ const addBlock = (newBlock: Block): boolean => {
   return true;
 };
 
-const mineBlock = (data: string): Block | null => {
+const mineBlock = (data: Transaction[]): Block | null => {
   const block = generateNextBlock(data);
 
   if (!addBlock(block)) return null;

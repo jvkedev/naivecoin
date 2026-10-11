@@ -1,11 +1,12 @@
 import express from "express";
-import { getBlockchain, mineBlock } from "./blockchain.js";
+import { getBlockchain, getLatestBlock, mineBlock } from "./blockchain.js";
 import {
   broadcastLatest,
   connectToPeer,
   getPeers,
   initP2PServer,
 } from "./p2p.js";
+import { getCoinbaseTransaction } from "./transaction.js";
 
 const HTTP_PORT = Number(process.env.HTTP_PORT) || 3001;
 const P2P_PORT = Number(process.env.P2P_PORT) || 6001;
@@ -19,15 +20,18 @@ app.get("/blocks", (req, res) => {
 });
 
 app.post("/mineBlock", (req, res) => {
-  const data = req.body?.data;
+  const address = req.body?.address;
 
-  if (!data || typeof data !== "string") {
+  if (!address || typeof address !== "string") {
     return res.status(400).json({
-      message: "Data is missing",
+      message: "Address is missing",
     });
   }
 
-  const block = mineBlock(data);
+  const nextIndex = getLatestBlock().index + 1;
+  const coinbase = getCoinbaseTransaction(address, nextIndex);
+
+  const block = mineBlock([coinbase]);
 
   if (block === null) {
     return res.status(500).json({
