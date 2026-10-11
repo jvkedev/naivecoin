@@ -151,6 +151,43 @@ const doInputsExist = (
   return true;
 };
 
+// Add up the value of every note this transaction crosses out
+const getTotalInputAmount = (
+  transaction: Transaction,
+  unspentTxOuts: UnspentTxOut[],
+): number => {
+  let total = 0;
+  for (const txIn of transaction.txIns) {
+    const note = findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, unspentTxOuts);
+    if (note !== undefined) {
+      total = total + note.amount;
+    }
+  }
+
+  return total;
+};
+
+// Add up the value of every new note this transaction writes
+const getTotalOutputAmount = (transaction: Transaction): number => {
+  let total = 0;
+  for (const txOut of transaction.txOuts) {
+    total = total + txOut.amount;
+  }
+
+  return total;
+};
+
+// Money in must equal money out
+const isAmountBalanced = (
+  transaction: Transaction,
+  UnspentTxOuts: UnspentTxOut[],
+): boolean => {
+  const totalIn = getTotalInputAmount(transaction, UnspentTxOuts);
+  const totalOut = getTotalOutputAmount(transaction);
+
+  return totalIn === totalOut;
+};
+
 export {
   TxOut,
   TxIn,
@@ -163,4 +200,5 @@ export {
   findUnspentTxOut,
   updateUnspentTxOuts,
   doInputsExist,
+  isAmountBalanced,
 };
