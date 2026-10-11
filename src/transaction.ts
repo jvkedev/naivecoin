@@ -91,6 +91,27 @@ const isValidTransactionId = (transaction: Transaction): boolean => {
   return getTransactionId(transaction) === transaction.id;
 };
 
+const findUnspentTxOut = (
+  txOutId: string,
+  txOutIndex: number,
+  unspentTxOuts: UnspentTxOut[],
+): UnspentTxOut | undefined => {
+  return unspentTxOuts.find(
+    (u) => u.txOutId === txOutId && u.txOutIndex === txOutIndex,
+  );
+};
+
+const doInputsExist = (
+  transaction: Transaction,
+  unspentTxOuts: UnspentTxOut[],
+): boolean => {
+  return transaction.txIns.every(
+    (txIn) =>
+      findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, unspentTxOuts) !==
+      undefined,
+  );
+};
+
 export {
   TxOut,
   TxIn,
@@ -100,4 +121,6 @@ export {
   UnspentTxOut,
   updateUnspentTxOuts,
   isValidTransactionId,
+  findUnspentTxOut,
+  doInputsExist,
 };
