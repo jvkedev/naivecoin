@@ -188,6 +188,47 @@ const isAmountBalanced = (
   return totalIn === totalOut;
 };
 
+// The same note must not appear twice in the inputs
+const hasDuplicateInputs = (transaction: Transaction): boolean => {
+  const seen: string[] = [];
+
+  for (const txIn of transaction.txIns) {
+    const key = txIn.txOutId + ":" + txIn.txOutIndex;
+
+    if (seen.includes(key)) {
+      return true;
+    }
+    seen.push(key);
+  }
+
+  return false;
+};
+
+// Every new note must be worth more than zero
+const hasValidOutputAmounts = (transaction: Transaction): boolean => {
+  for (const txOut of transaction.txOuts) {
+    if (txOut.amount <= 0) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+// The full checklist for a normal (non-coinbase) transaction
+const validateTransaction = (
+  transaction: Transaction,
+  unspentTxOuts: UnspentTxOut[],
+): boolean => {
+  if (!isValidTransactionId(transaction)) return false;
+  if (hasDuplicateInputs(transaction)) return false;
+  if (!hasValidOutputAmounts(transaction)) return false;
+  if (!doInputsExist(transaction, unspentTxOuts)) return false;
+  if (!isAmountBalanced(transaction, unspentTxOuts)) return false;
+
+  return true;
+};
+
 export {
   TxOut,
   TxIn,
@@ -201,4 +242,5 @@ export {
   updateUnspentTxOuts,
   doInputsExist,
   isAmountBalanced,
+  validateTransaction,
 };
