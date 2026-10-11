@@ -229,6 +229,28 @@ const validateTransaction = (
   return true;
 };
 
+const validateCoinbaseTransaction = (
+  transaction: Transaction,
+  blockIndex: number,
+): boolean => {
+  if (!isValidTransactionId(transaction)) return false;
+
+  if (transaction.txIns.length !== 1) return false;
+  if (transaction.txOuts.length !== 1) return false;
+
+  const txIn = transaction.txIns[0];
+  const txOut = transaction.txOuts[0];
+  if (txIn === undefined || txOut === undefined) return false;
+
+  if (txIn.txOutId !== "") return false;
+
+  if (txIn.txOutIndex !== blockIndex) return false;
+
+  if (txOut.amount !== COINBASE_AMOUNT) return false;
+
+  return true;
+};
+
 export {
   TxOut,
   TxIn,
@@ -243,4 +265,5 @@ export {
   doInputsExist,
   isAmountBalanced,
   validateTransaction,
+  validateCoinbaseTransaction,
 };
