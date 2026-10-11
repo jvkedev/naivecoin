@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { Transaction } from "./transaction.js";
+import {
+  type Transaction,
+  UnspentTxOut,
+  updateUnspentTxOuts,
+} from "./transaction.js";
 
 const BLOCK_GENERATION_INTERVAL = 10;
 const DIFFICULTY_ADJUSTMENT_INTERVAL = 5;
@@ -89,6 +93,7 @@ const genesisBlock = new Block(
 );
 
 let blockchain: Block[] = [genesisBlock];
+let UnspentTxOuts: UnspentTxOut[] = [];
 
 const getLatestBlock = (): Block => {
   const latest = blockchain[blockchain.length - 1];
@@ -199,12 +204,23 @@ const isValidChain = (chain: Block[]): boolean => {
   return true;
 };
 
+const buildUnspentTxOuts = (chain: Block[]): UnspentTxOut[] => {
+  let result: UnspentTxOut[] = [];
+
+  for (const block of chain) {
+    result = updateUnspentTxOuts(block.data, result);
+  }
+
+  return result;
+};
+
 const addBlock = (newBlock: Block): boolean => {
   if (!isValidBlock(newBlock, getLatestBlock())) return false;
 
   if (newBlock.difficulty !== getDifficulty(blockchain)) return false;
 
   blockchain.push(newBlock);
+  UnspentTxOuts = updateUnspentTxOuts(newBlock.data, UnspentTxOuts);
   return true;
 };
 
@@ -232,9 +248,12 @@ const replaceChain = (newChain: Block[]): boolean => {
   if (getTotalWork(newChain) <= getTotalWork(blockchain)) return false;
 
   blockchain = newChain;
+  UnspentTxOuts = buildUnspentTxOuts(newChain);
 
   return true;
 };
+
+const getUnspentTxOuts = (): UnspentTxOut[] => UnspentTxOuts;
 
 export {
   Block,
@@ -245,4 +264,5 @@ export {
   isValidChain,
   mineBlock,
   replaceChain,
+  getUnspentTxOuts,
 };

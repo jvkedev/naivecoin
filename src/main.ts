@@ -1,5 +1,10 @@
 import express from "express";
-import { getBlockchain, getLatestBlock, mineBlock } from "./blockchain.js";
+import {
+  getBlockchain,
+  getLatestBlock,
+  getUnspentTxOuts,
+  mineBlock,
+} from "./blockchain.js";
 import {
   broadcastLatest,
   connectToPeer,
@@ -61,6 +66,10 @@ app.post("/addPeer", (req, res) => {
 
 app.get("/peers", (req, res) => {
   return res.status(200).json(getPeers());
+});
+
+app.get("/unspentOutputs", (req, res) => {
+  res.status(200).json(getUnspentTxOuts());
 });
 
 app.listen(HTTP_PORT, () => {
