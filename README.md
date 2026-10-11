@@ -4,52 +4,43 @@ A small cryptocurrency built from scratch in TypeScript to learn how blockchains
 
 ## The idea of this project
 
-Most people use crypto without knowing how it works. This project answers four questions by building each answer yourself:
+Most people use crypto without knowing how it works. This project answers five questions by building each answer:
 
 1. **How can data be tamper-proof?** Blocks are linked by SHA-256 hashes.
 2. **How can strangers agree on one history with no central server?** Nodes talk peer-to-peer and follow the valid chain with the most work.
 3. **Why is it expensive to cheat?** Proof of work makes adding a block cost real computation.
 4. **How can money exist without a bank?** The UTXO model tracks unspent outputs instead of account balances.
+5. **How do you prove a coin is yours?** Wallets and digital signatures (next step).
 
 ## Progress
 
-| Step | Feature                                                                 | Status                      |
-| ---- | ----------------------------------------------------------------------- | --------------------------- |
-| 1    | Basic blockchain (blocks, hashing, validation)                          | Done                        |
-| 2    | HTTP API (Express)                                                      | Done                        |
-| 3    | P2P network (WebSocket sync)                                            | Done                        |
-| 4    | Proof of work, difficulty adjustment, total-work rule, timestamp checks | Done                        |
-| 5    | Transactions (UTXO model)                                               | **In progress** (about 40%) |
-| 6    | Wallet (key pairs and signatures)                                       | Not started                 |
-| 7    | Transaction pool                                                        | Not started                 |
-| 8    | Polish (balances, address lookup, tests)                                | Not started                 |
+| Step | Feature | Status |
+|---|---|---|
+| 1 | Basic blockchain (blocks, hashing, validation) | Done |
+| 2 | HTTP API (Express) | Done |
+| 3 | P2P network (WebSocket sync) | Done |
+| 4 | Proof of work, difficulty adjustment, total-work rule, timestamp checks | Done |
+| 5 | Transactions (UTXO model) | Done |
+| 6 | Wallet (key pairs and signatures) | Next |
+| 7 | Transaction pool | Not started |
+| 8 | Polish (balances, address lookup, tests) | Not started |
 
-### Step 5 breakdown
-
-| Part | What it does                                                                | Status                                                                                    |
-| ---- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 5a   | `TxOut`, `TxIn`, `Transaction` classes and `getTransactionId`               | Done                                                                                      |
-| 5b   | Coinbase (mining reward) transaction                                        | Done                                                                                      |
-| 5c   | `UnspentTxOut` class                                                        | Done                                                                                      |
-| 5d   | `updateUnspentTxOuts`: update the unspent list after a block                | Done                                                                                      |
-| 5e   | Validate a transaction                                                      | In progress: id check done; inputs-exist check and money-in-equals-money-out check remain |
-| 5f   | Validate the coinbase and a block's whole transaction list                  | To do                                                                                     |
-| 5g   | Put transactions into blocks (`data: string` becomes `data: Transaction[]`) | To do                                                                                     |
-| 5h   | End-to-end test: mine a block, see the reward in the unspent list           | To do                                                                                     |
-
-**Important:** the transaction code lives in `src/transaction.ts` and is **not connected to blocks or the API yet**. Blocks still carry a plain string in `data`. Connecting them is step 5g.
+Roughly 60% of the project is finished.
 
 ## What works today
 
-- Blocks linked by SHA-256 hashes, with full block and chain validation
-- **Proof of work:** each block has a `nonce` and `difficulty`; a block's hash must start with `difficulty` zero bits
-- **Difficulty adjustment:** every 5 blocks, difficulty goes up by 1 if the batch was mined in under half the target time, and down by 1 (never below 0) if it took over double. Target: 1 block per 10 seconds
-- **Difficulty is enforced:** every node recomputes the required difficulty and rejects blocks that claim a different one, so a miner cannot pick an easy difficulty
-- **Most total work wins:** when chains compete, a node follows the chain with the most accumulated work (each block counts as `2^difficulty`), not simply the longest one
+- **Blocks** linked by SHA-256 hashes, with full block and chain validation
+- **Proof of work:** each block has a `nonce` and `difficulty`; its hash must start with `difficulty` zero bits
+- **Difficulty adjustment:** every 5 blocks, difficulty goes up 1 if the batch was mined in under half the target time, and down 1 (never below 0) if it took over double. Target: 1 block per 10 seconds
+- **Difficulty is enforced:** every node recomputes the required difficulty and rejects blocks that claim a different one
+- **Most total work wins:** nodes follow the valid chain with the most accumulated work (each block counts as `2^difficulty`), not just the longest
 - **Timestamp rules:** a block may not be more than 60 seconds older than its parent, or more than 60 seconds ahead of the node's clock
-- HTTP API to view the chain, mine blocks and manage peers
-- Several nodes connected over WebSockets, staying in sync
-- Transaction building blocks: ids, coinbase reward, unspent list updates (in `transaction.ts`, not yet wired in)
+- **Transactions (UTXO):** blocks contain transactions; the first is always the miner's reward (coinbase)
+- **Transaction validation:** id matches contents, inputs exist, no duplicate inputs, outputs are positive, and money in equals money out
+- **Double-spend protection:** a spent output is removed from the unspent set, so it cannot be spent again, within a block or across the chain
+- **Unspent set** kept in sync as blocks are added, and rebuilt from the first block whenever the chain is replaced
+- **HTTP API** to view the chain, mine blocks, spend coins and manage peers
+- **P2P sync:** several nodes stay in sync over WebSockets
 
 ## Tech stack
 
@@ -81,7 +72,7 @@ HTTP_PORT=3001 P2P_PORT=6001 npm run dev
 HTTP_PORT=3002 P2P_PORT=6002 npm run dev
 ```
 
-Connect node 2 to node 1 (using curl, Bruno, or any HTTP client):
+Connect node 2 to node 1 (with curl, Bruno, or any HTTP client):
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -89,26 +80,45 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:3002/addPeer
 ```
 
-Mine a block on node 1, then check node 2:
+Chains, peers and unspent outputs live in memory only. After restarting a node, run `/addPeer` again.
 
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  --data '{"data": "hello"}' \
-  http://localhost:3001/mineBlock
+### Try the whole flow
 
-curl http://localhost:3002/blocks
-```
+1. Mine a block so `dev` earns the 50-coin reward:
 
-Connections and chains are in memory only: after restarting a node, run `/addPeer` again.
+   ```bash
+   curl -X POST -H "Content-Type: application/json" \
+     --data '{"address": "dev"}' http://localhost:3001/mineBlock
+   ```
+
+2. List unspent outputs and copy the `txOutId` of the note owned by `dev`:
+
+   ```bash
+   curl http://localhost:3001/unspentOutputs
+   ```
+
+3. Spend 20 of it to `asha`. A second miner address collects the next reward:
+
+   ```bash
+   curl -X POST -H "Content-Type: application/json" \
+     --data '{"minerAddress":"miner","txOutId":"<ID>","txOutIndex":0,"toAddress":"asha","amount":20}' \
+     http://localhost:3001/mineTransaction
+   ```
+
+4. Check `/unspentOutputs` again: `asha` has 20, `dev` has 30 change, `miner` has 50, and the original 50-coin note is gone. Node 2 shows the same.
+
+5. Send the same request again: it is rejected, because that note was already spent.
 
 ## API
 
-| Method | Endpoint     | Body                              | Description                                                   |
-| ------ | ------------ | --------------------------------- | ------------------------------------------------------------- |
-| GET    | `/blocks`    | none                              | Returns the whole chain                                       |
-| POST   | `/mineBlock` | `{ "data": "text" }`              | Mines a block (proof of work), adds it, announces it to peers |
-| POST   | `/addPeer`   | `{ "peer": "ws://host:p2pPort" }` | Connects to another node                                      |
-| GET    | `/peers`     | none                              | Lists connected peers                                         |
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| GET | `/blocks` | none | Returns the whole chain |
+| POST | `/mineBlock` | `{ "address": "dev" }` | Mines a block containing only the reward for `address` |
+| POST | `/mineTransaction` | `{ "minerAddress", "txOutId", "txOutIndex", "toAddress", "amount" }` | Spends one unspent output and mines it, with the reward, into a block. **Temporary** testing route, replaced by wallets in Step 6 |
+| GET | `/unspentOutputs` | none | Lists every unspent output (the "notebook") |
+| POST | `/addPeer` | `{ "peer": "ws://host:p2pPort" }` | Connects to another node |
+| GET | `/peers` | none | Lists connected peers |
 
 `/addPeer` takes the other node's **P2P (WebSocket) port**, not its HTTP port.
 
@@ -117,10 +127,10 @@ Connections and chains are in memory only: after restarting a node, run `/addPee
 ### Blocks
 
 ```
-Block { index, hash, previousHash, timestamp, data, difficulty, nonce }
+Block { index, hash, previousHash, timestamp, data: Transaction[], difficulty, nonce }
 ```
 
-The hash is `SHA-256(index || previousHash || timestamp || data || difficulty || nonce)`. Every field that must not be altered is part of the hash, so changing any old block changes its hash and breaks the link to the next one.
+The hash is `SHA-256(index || previousHash || timestamp || JSON(data) || difficulty || nonce)`. Every field that must not be altered is part of the hash, so changing anything in an old block changes its hash and breaks the link to the next one.
 
 A block is valid when:
 
@@ -130,21 +140,44 @@ A block is valid when:
 4. recomputing its hash gives the stored `hash`
 5. its hash has at least `difficulty` leading zero bits
 6. its `difficulty` equals what the rules require at that height
+7. its transactions are valid against the current unspent set
 
 ### Proof of work
 
-Miners try `nonce = 0, 1, 2, ...` until the hash starts with enough zero bits. Each extra zero bit halves the chance of success, so each +1 difficulty is roughly twice the work. The `nonce` is only the number being varied; the number of tries is a result of luck and difficulty.
+Miners try `nonce = 0, 1, 2, ...` until the hash starts with enough zero bits. Each extra zero bit halves the chance of success, so each +1 difficulty is roughly twice the work.
 
 ### Choosing between chains
 
-A chain is valid when it starts with the known genesis block and every block is valid against the one before it (including its required difficulty). A node replaces its chain only when the received chain is valid **and** has more total work.
+A chain is valid when it starts with the known genesis block and every block is valid against the one before it, including its difficulty and transactions (replayed from the start with a running unspent set). A node replaces its chain only when the received chain is valid and has more total work.
+
+### Transactions (UTXO model)
+
+Instead of account balances, the chain tracks **unspent transaction outputs**, like cash notes:
+
+- An **output** (`TxOut`) is a note: an `address` (owner) and an `amount`.
+- An **input** (`TxIn`) points at a note being spent, by `(txOutId, txOutIndex)`: which transaction created it, and which output inside it.
+- A **transaction** spends existing outputs and creates new ones. Total in equals total out; any leftover goes back to the sender as change.
+- The **transaction id** is the SHA-256 of its inputs and outputs, so changing any amount or address is detected.
+- The **coinbase transaction** is the first transaction in each block. It has one fake input (empty `txOutId`, `txOutIndex` set to the block number so ids stay unique) and creates a fixed 50-coin reward for the miner.
+- The **unspent list** holds every output that exists and is not spent. After each block, spent outputs are removed and new ones added.
+- A **balance** is the sum of the unspent outputs that belong to an address.
+
+A transaction is valid when:
+
+1. its id matches its contents
+2. no input appears twice
+3. every output amount is above zero
+4. every input points at an existing unspent output
+5. total input equals total output
+
+A block's transaction list is valid when the first transaction is a correct coinbase, every other transaction passes the checks above, and no output is spent twice within the block.
 
 ### Peer-to-peer messages
 
-| Type                  | Meaning                                                                |
-| --------------------- | ---------------------------------------------------------------------- |
-| `QUERY_LATEST`        | "Send me your latest block"                                            |
-| `QUERY_ALL`           | "Send me your whole chain"                                             |
+| Type | Meaning |
+|---|---|
+| `QUERY_LATEST` | "Send me your latest block" |
+| `QUERY_ALL` | "Send me your whole chain" |
 | `RESPONSE_BLOCKCHAIN` | "Here are blocks" (answer to a query, or an announcement after mining) |
 
 When a node receives blocks, it compares the peer's latest block with its own:
@@ -156,46 +189,28 @@ When a node receives blocks, it compares the peer's latest block with its own:
 
 Nothing from a peer is trusted; every block and chain is validated first.
 
-### Transactions (UTXO model, in progress)
-
-Instead of account balances, the chain tracks **unspent transaction outputs**, like cash notes:
-
-- An **output** (`TxOut`) is a note: an `address` (owner) and an `amount`.
-- An **input** (`TxIn`) points at a note being spent, by `(txOutId, txOutIndex)`: which transaction created it, and which output inside it.
-- A **transaction** spends existing outputs and creates new ones. Total in must equal total out; any leftover goes back to the sender as change.
-- The **transaction id** is the SHA-256 of its inputs and outputs, so tampering with any amount or address changes the hash and is detected.
-- The **coinbase transaction** is the first transaction in each block. It has one fake input (empty `txOutId`, `txOutIndex` set to the block number so ids stay unique) and creates a 50-coin reward for the miner.
-- The **unspent list** (`UnspentTxOut[]`) holds every note that exists and is not yet spent. After each block, spent outputs are removed and new ones added. A spent note is gone, so it cannot be spent twice. This is what prevents double spending.
-- A wallet's **balance** is the sum of the unspent outputs that belong to its address.
-
-Signatures (proving you own an output) arrive in Step 6, so until then anyone could spend anyone's output.
-
 ## Project structure
 
 ```
 src/
-  blockchain.ts    blocks, hashing, proof of work, difficulty, chain validation and selection
-  transaction.ts   transaction classes, ids, coinbase, unspent list update (not yet wired into blocks)
+  blockchain.ts    blocks, hashing, proof of work, difficulty, chain validation and selection, unspent set
+  transaction.ts   transaction classes, ids, coinbase, unspent updates, transaction and block validation
   p2p.ts           WebSocket server, peer connections, messages, broadcasting
   main.ts          Express HTTP API and startup
 ```
 
 ## What is left
 
-1. Finish transaction validation: inputs must exist in the unspent list, and total input value must equal total output value (5e)
-2. Validate the coinbase and a block's whole transaction list (5f)
-3. Store transactions inside blocks and keep the unspent list in sync with the chain (5g, 5h)
-4. Wallet: key pairs, addresses, signing and verifying transactions (Step 6)
-5. Transaction pool for pending transactions, and mining from it (Step 7)
-6. Balance and address lookup endpoints, tests (Step 8)
-7. Possible extra: a separate Next.js frontend that talks to a node over HTTP
-
-Roughly: Steps 1 to 4 are complete, Step 5 is partly done, and Steps 6 to 8 are still ahead. About half of the project is finished.
+1. **Wallet (Step 6):** key pairs, addresses derived from public keys, signing inputs and verifying signatures, so only the owner can spend an output
+2. **Transaction pool (Step 7):** pending transactions waiting to be mined, shared between peers
+3. **Polish (Step 8):** balance and address lookup endpoints, tests
+4. Possible extra: a separate Next.js frontend that talks to a node over HTTP
 
 ## Known limitations
 
-- The chain, peer list and unspent list are in memory only; a restarted node starts from genesis and re-syncs
-- `data` is still a plain string; transactions are not yet part of blocks
-- No signatures yet, so ownership of outputs is not enforced
+- **No signatures yet:** anyone can spend any output via `/mineTransaction` (fixed by Step 6)
+- Transactions cannot be sent to the network on their own yet; they go straight into a mined block (fixed by Step 7)
+- The chain, peer list and unspent set are in memory only; a restarted node starts from genesis and re-syncs
+- A block cannot spend an output created earlier in the same block
 - No reconnection or heartbeat for dropped peer connections
 - Work is summed with normal numbers; real systems use `BigInt` for very high difficulty
