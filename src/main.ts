@@ -11,7 +11,14 @@ import {
   getPeers,
   initP2PServer,
 } from "./p2p.js";
-import { getCoinbaseTransaction } from "./transaction.js";
+import {
+  Transaction,
+  TxIn,
+  TxOut,
+  findUnspentTxOut,
+  getCoinbaseTransaction,
+  getTransactionId,
+} from "./transaction.js";
 
 const HTTP_PORT = Number(process.env.HTTP_PORT) || 3001;
 const P2P_PORT = Number(process.env.P2P_PORT) || 6001;
@@ -70,6 +77,66 @@ app.get("/peers", (req, res) => {
 
 app.get("/unspentOutputs", (req, res) => {
   res.status(200).json(getUnspentTxOuts());
+});
+
+app.post("/mineTransaction", (req, res) => {
+  const body = req.body;
+
+  if (
+    !body ||
+    typeof body.minerAddress !== "string" ||
+    typeof body.txOutId !== "string" ||
+    typeof body.txOutIndex !== "number" ||
+    typeof body.toAddress !== "string" ||
+    typeof body.amount !== "number"
+  ) {
+    return res.status(400).json({
+      message: "Missing or wrong fields",
+    });
+  }
+
+  const note = findUnspentTxOut(
+    body.txOutId,
+    body.txOutIndex,
+    getUnspentTxOuts(),
+  );
+
+  if (note === undefined) {
+    return res.status(400).json({
+      message: "Note not found (already spent?)",
+    });
+  }
+
+  if (body.amount <= 0 || body.amount > note.amount) {
+    return res.status(400).json({
+      message: "Bad amount",
+    });
+  }
+
+  const txOuts = [new TxOut(body.toAddress, body.amount)];
+  if (body.amount < note.amount) {
+    txOuts.push(new TxOut(note.address, note.amount - body.amount));
+  }
+
+  const tx = new Transaction(
+    "",
+    [new TxIn(body.txOutId, body.txOutIndex)],
+    txOuts,
+  );
+  tx.id = getTransactionId(tx);
+
+  const nextIndex = getLatestBlock().index + 1;
+  const coinbase = getCoinbaseTransaction(body.minerAddress, nextIndex);
+  const block = mineBlock([coinbase, tx]);
+
+  if (block === null) {
+    return res.status(400).json({
+      message: "Block was rejected",
+    });
+  }
+
+  broadcastLatest();
+  return res.status(201).json(block);
 });
 
 app.listen(HTTP_PORT, () => {
