@@ -251,6 +251,35 @@ const validateCoinbaseTransaction = (
   return true;
 };
 
+const validateBlockTransactions = (
+  transactions: Transaction[],
+  unspentTxOuts: UnspentTxOut[],
+  blockIndex: number,
+): boolean => {
+  const coinbase = transactions[0];
+
+  if (coinbase === undefined) return false;
+  if (!validateCoinbaseTransaction(coinbase, blockIndex)) return false;
+
+  const spentInThisBlock: string[] = [];
+
+  for (const tx of transactions.slice(1)) {
+    if (!validateTransaction(tx, unspentTxOuts)) return false;
+
+    for (const txIn of tx.txIns) {
+      const key = txIn.txOutId + ":" + txIn.txOutIndex;
+
+      if (spentInThisBlock.includes(key)) {
+        return false;
+      }
+
+      spentInThisBlock.push(key);
+    }
+  }
+
+  return true;
+};
+
 export {
   TxOut,
   TxIn,
@@ -266,4 +295,5 @@ export {
   isAmountBalanced,
   validateTransaction,
   validateCoinbaseTransaction,
+  validateBlockTransactions,
 };
