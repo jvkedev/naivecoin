@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getPublicFromPrivateKey, signData } from "./keys.js";
 
 // ---------- The shapes of our data ----------
 
@@ -15,6 +16,7 @@ class TxIn {
   constructor(
     public txOutId: string,
     public txOutIndex: number,
+    public signature: string = "",
   ) {}
 }
 
@@ -280,6 +282,30 @@ const validateBlockTransactions = (
   return true;
 };
 
+const signTxIn = (
+  transaction: Transaction,
+  txInIndex: number,
+  privateKey: string,
+  unspentTxOuts: UnspentTxOut[],
+): string => {
+  const txIn = transaction.txIns[txInIndex];
+
+  if (txIn === undefined) {
+    throw new Error("No such input");
+  }
+
+  const note = findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, unspentTxOuts);
+  if (note === undefined) {
+    throw new Error("Input note not found");
+  }
+
+  if (getPublicFromPrivateKey(privateKey) !== note.address) {
+    throw new Error("This key does not own any note");
+  }
+
+  return signData(transaction.id, privateKey);
+};
+
 export {
   TxOut,
   TxIn,
@@ -296,4 +322,5 @@ export {
   validateTransaction,
   validateCoinbaseTransaction,
   validateBlockTransactions,
+  signTxIn
 };
