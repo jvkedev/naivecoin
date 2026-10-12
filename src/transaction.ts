@@ -182,9 +182,9 @@ const getTotalOutputAmount = (transaction: Transaction): number => {
 // Money in must equal money out
 const isAmountBalanced = (
   transaction: Transaction,
-  UnspentTxOuts: UnspentTxOut[],
+  unspentTxOuts: UnspentTxOut[],
 ): boolean => {
-  const totalIn = getTotalInputAmount(transaction, UnspentTxOuts);
+  const totalIn = getTotalInputAmount(transaction, unspentTxOuts);
   const totalOut = getTotalOutputAmount(transaction);
 
   return totalIn === totalOut;
@@ -217,7 +217,7 @@ const hasValidOutputAmounts = (transaction: Transaction): boolean => {
   return true;
 };
 
-const areSignatureValid = (
+const areSignaturesValid = (
   transaction: Transaction,
   unspentTxOuts: UnspentTxOut[],
 ): boolean => {
@@ -244,7 +244,7 @@ const validateTransaction = (
   if (hasDuplicateInputs(transaction)) return false;
   if (!hasValidOutputAmounts(transaction)) return false;
   if (!doInputsExist(transaction, unspentTxOuts)) return false;
-  if (!areSignatureValid(transaction, unspentTxOuts)) return false;
+  if (!areSignaturesValid(transaction, unspentTxOuts)) return false;
   if (!isAmountBalanced(transaction, unspentTxOuts)) return false;
 
   return true;

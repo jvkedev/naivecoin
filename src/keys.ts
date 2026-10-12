@@ -1,5 +1,4 @@
 import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
-import { buffer } from "node:stream/consumers";
 
 const toPrivateKeyObject = (privateKeyHex: string) => {
   return createPrivateKey({
