@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getPublicFromPrivateKey, signData } from "./keys.js";
+import { getPublicFromPrivateKey, signData, verifySignature } from "./keys.js";
 
 // ---------- The shapes of our data ----------
 
@@ -217,6 +217,24 @@ const hasValidOutputAmounts = (transaction: Transaction): boolean => {
   return true;
 };
 
+const areSignatureValid = (
+  transaction: Transaction,
+  unspentTxOuts: UnspentTxOut[],
+): boolean => {
+  for (const txIn of transaction.txIns) {
+    const note = findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, unspentTxOuts);
+    if (note === undefined) {
+      return false;
+    }
+
+    if (!verifySignature(transaction.id, txIn.signature, note.address)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 // The full checklist for a normal (non-coinbase) transaction
 const validateTransaction = (
   transaction: Transaction,
@@ -226,6 +244,7 @@ const validateTransaction = (
   if (hasDuplicateInputs(transaction)) return false;
   if (!hasValidOutputAmounts(transaction)) return false;
   if (!doInputsExist(transaction, unspentTxOuts)) return false;
+  if (!areSignatureValid(transaction, unspentTxOuts)) return false;
   if (!isAmountBalanced(transaction, unspentTxOuts)) return false;
 
   return true;
@@ -322,5 +341,5 @@ export {
   validateTransaction,
   validateCoinbaseTransaction,
   validateBlockTransactions,
-  signTxIn
+  signTxIn,
 };

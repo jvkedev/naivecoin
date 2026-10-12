@@ -1,4 +1,5 @@
-import { createPrivateKey, createPublicKey, sign } from "node:crypto";
+import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
+import { buffer } from "node:stream/consumers";
 
 const toPrivateKeyObject = (privateKeyHex: string) => {
   return createPrivateKey({
@@ -21,4 +22,27 @@ const signData = (data: string, privateKeyHex: string): string => {
   ).toString("hex");
 };
 
-export { getPublicFromPrivateKey, signData };
+const verifySignature = (
+  data: string,
+  signatureHex: string,
+  publicKeyHex: string,
+): boolean => {
+  try {
+    const publicKey = createPublicKey({
+      key: Buffer.from(publicKeyHex, "hex"),
+      format: "der",
+      type: "spki",
+    });
+
+    return verify(
+      "sha256",
+      Buffer.from(data),
+      publicKey,
+      Buffer.from(signatureHex, "hex"),
+    );
+  } catch {
+    return false;
+  }
+};
+
+export { getPublicFromPrivateKey, signData, verifySignature };
