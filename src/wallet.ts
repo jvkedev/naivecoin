@@ -1,4 +1,8 @@
-import { generateKeyPairSync } from "node:crypto";
+import {
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+} from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const HTTP_PORT = process.env.HTTP_PORT || 3001;
@@ -24,4 +28,16 @@ const getPrivateKeyFromWallet = (): string => {
   return readFileSync(PRIVATE_KEY_FILE, "utf-8").trim();
 };
 
-export { initWallet, getPrivateKeyFromWallet };
+const getPublicFromWallet = (): string => {
+  const privateKey = createPrivateKey({
+    key: Buffer.from(getPrivateKeyFromWallet(), "hex"),
+    format: "der",
+    type: "pkcs8",
+  });
+
+  const publicKey = createPublicKey(privateKey);
+
+  return publicKey.export({ type: "spki", format: "der" }).toString("hex");
+};
+
+export { initWallet, getPrivateKeyFromWallet, getPublicFromWallet };
