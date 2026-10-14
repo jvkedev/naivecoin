@@ -7,6 +7,7 @@ import {
 } from "./blockchain.js";
 import {
   broadcastLatest,
+  broadcastTransactionPool,
   connectToPeer,
   getPeers,
   initP2PServer,
@@ -19,6 +20,7 @@ import {
   getPublicFromWallet,
   initWallet,
 } from "./wallet.js";
+import { addToTransactionPool, getTransactionPool } from "./transactionPool.js";
 
 const HTTP_PORT = Number(process.env.HTTP_PORT) || 3001;
 const P2P_PORT = Number(process.env.P2P_PORT) || 6001;
@@ -114,6 +116,48 @@ app.post("/mineTransaction", (req, res) => {
     return res.status(400).json({
       message,
     });
+  }
+});
+
+app.get("/transactionPool", (req, res) => {
+  res.json(getTransactionPool());
+});
+
+app.post("/sendTransaction", (req, res) => {
+  const address = req.body?.address;
+  const amount = req.body?.amount;
+
+  if (typeof address !== "string" || typeof amount !== "number") {
+    res.status(400).send("address (string) and amount (number) are required");
+    return;
+  }
+
+  if (address.length !== getPublicFromWallet().length) {
+    res.status(400).send("Invalid address");
+    return;
+  }
+
+  try {
+    const tx = createTransaction(
+      address,
+      amount,
+      getPrivateKeyFromWallet(),
+      getUnspentTxOuts(),
+    );
+
+    if (!addToTransactionPool(tx, getUnspentTxOuts())) {
+      res.status(400).send("Transaction refused");
+      return;
+    }
+
+    broadcastTransactionPool();
+    res.json(tx);
+  } catch (error) {
+    res
+      .status(400)
+      .send(
+        error instanceof Error ? error.message : "Could not create transaction",
+      );
   }
 });
 

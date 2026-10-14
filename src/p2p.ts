@@ -4,8 +4,11 @@ import {
   addBlock,
   getBlockchain,
   getLatestBlock,
+  getUnspentTxOuts,
   replaceChain,
 } from "./blockchain.js";
+import { addToTransactionPool, getTransactionPool } from "./transactionPool.js";
+import type { Transaction } from "./transaction.js";
 
 const sockets = new Set<WebSocket>();
 
@@ -29,6 +32,8 @@ enum MessageType {
   QUERY_LATEST = 0,
   QUERY_ALL = 1,
   RESPONSE_BLOCKCHAIN = 2,
+  QUERY_TRANSACTION_POOL,
+  RESPONSE_TRANSACTION_POOL,
 }
 
 interface Message {
@@ -52,6 +57,13 @@ const broadcastLatest = (): void => {
   broadcast({
     type: MessageType.RESPONSE_BLOCKCHAIN,
     data: JSON.stringify([getLatestBlock()]),
+  });
+};
+
+const broadcastTransactionPool = (): void => {
+  broadcast({
+    type: MessageType.RESPONSE_TRANSACTION_POOL,
+    data: JSON.stringify(getTransactionPool()),
   });
 };
 
@@ -103,6 +115,39 @@ const initMessageHandler = (ws: WebSocket): void => {
           break;
         }
 
+        case MessageType.QUERY_TRANSACTION_POOL: {
+          send(ws, {
+            type: MessageType.RESPONSE_TRANSACTION_POOL,
+            data: JSON.stringify(getTransactionPool()),
+          });
+          break;
+        }
+
+        case MessageType.RESPONSE_TRANSACTION_POOL: {
+          let received: Transaction[];
+          try {
+            received = JSON.parse(message.data);
+          } catch {
+            break;
+          }
+
+          if (!Array.isArray(received)) break;
+
+          let addedSomething = false;
+
+          for (const tx of received) {
+            if (addToTransactionPool(tx, getUnspentTxOuts())) {
+              addedSomething = true;
+            }
+          }
+
+          if (addedSomething) {
+            broadcastTransactionPool();
+          }
+
+          break;
+        }
+
         default:
           console.log("Unknown message type");
       }
@@ -125,10 +170,17 @@ const initConnection = (ws: WebSocket): void => {
 
   initMessageHandler(ws);
   send(ws, { type: MessageType.QUERY_LATEST, data: null });
+  send(ws, { type: MessageType.QUERY_TRANSACTION_POOL, data: null });
 };
 
 const getPeers = (): string[] => {
   return [...sockets].map(() => "peer");
 };
 
-export { initP2PServer, connectToPeer, getPeers, broadcastLatest };
+export {
+  initP2PServer,
+  connectToPeer,
+  getPeers,
+  broadcastLatest,
+  broadcastTransactionPool,
+};
