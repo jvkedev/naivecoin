@@ -82,43 +82,6 @@ app.post("/mineBlock", (req, res) => {
   return res.status(201).json(block);
 });
 
-app.post("/mineTransaction", (req, res) => {
-  const address = req.body?.address;
-  const amount = req.body?.amount;
-
-  if (typeof address !== "string" || typeof amount !== "number") {
-    return res.status(400).json({
-      message: "Need an address (text) and an amount (number)",
-    });
-  }
-
-  try {
-    const tx = createTransaction(
-      address,
-      amount,
-      getPrivateKeyFromWallet(),
-      getUnspentTxOuts(),
-    );
-
-    const nextIndex = getLatestBlock().index + 1;
-    const coinbase = getCoinbaseTransaction(getPublicFromWallet(), nextIndex);
-
-    const block = mineBlock([coinbase, tx]);
-    if (block === null) {
-      return res.status(400).json({ message: "Block was rejected" });
-    }
-
-    broadcastLatest();
-    return res.status(201).json(block);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Something went wrong";
-    return res.status(400).json({
-      message,
-    });
-  }
-});
-
 app.get("/transactionPool", (req, res) => {
   res.json(getTransactionPool());
 });
