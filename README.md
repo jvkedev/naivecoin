@@ -1,6 +1,6 @@
 # Naivecoin (TypeScript)
 
-A small cryptocurrency built from scratch in TypeScript to learn how blockchains work under the hood: hashing, proof of work, peer-to-peer syncing, and the UTXO transaction model. It follows the structure of the [Naivecoin tutorial](https://lhartikk.github.io/), rewritten with current tooling (Node.js, TypeScript strict mode, Express 5, `ws`) and rebuilt step by step.
+A small cryptocurrency built from scratch in TypeScript to learn how blockchains work under the hood: hashing, proof of work, peer-to-peer syncing, the UTXO transaction model, and wallets with digital signatures. It follows the structure of the [Naivecoin tutorial](https://lhartikk.github.io/), rewritten with current tooling (Node.js, TypeScript strict mode, Express 5, `ws`) and rebuilt step by step.
 
 ## The idea of this project
 
@@ -10,7 +10,7 @@ Most people use crypto without knowing how it works. This project answers five q
 2. **How can strangers agree on one history with no central server?** Nodes talk peer-to-peer and follow the valid chain with the most work.
 3. **Why is it expensive to cheat?** Proof of work makes adding a block cost real computation.
 4. **How can money exist without a bank?** The UTXO model tracks unspent outputs instead of account balances.
-5. **How do you prove a coin is yours?** Wallets and digital signatures (next step).
+5. **How do you prove a coin is yours?** Wallets: a private key signs, and every node verifies the signature against the public key.
 
 ## Progress
 
@@ -21,11 +21,11 @@ Most people use crypto without knowing how it works. This project answers five q
 | 3 | P2P network (WebSocket sync) | Done |
 | 4 | Proof of work, difficulty adjustment, total-work rule, timestamp checks | Done |
 | 5 | Transactions (UTXO model) | Done |
-| 6 | Wallet (key pairs and signatures) | Next |
-| 7 | Transaction pool | Not started |
-| 8 | Polish (balances, address lookup, tests) | Not started |
+| 6 | Wallet (key pairs, addresses, signatures) | Done |
+| 7 | Transaction pool | Next |
+| 8 | Polish (lookups, tests, cleanup) | Not started |
 
-Roughly 60% of the project is finished.
+Roughly 75% of the project is finished.
 
 ## What works today
 
@@ -36,10 +36,11 @@ Roughly 60% of the project is finished.
 - **Most total work wins:** nodes follow the valid chain with the most accumulated work (each block counts as `2^difficulty`), not just the longest
 - **Timestamp rules:** a block may not be more than 60 seconds older than its parent, or more than 60 seconds ahead of the node's clock
 - **Transactions (UTXO):** blocks contain transactions; the first is always the miner's reward (coinbase)
-- **Transaction validation:** id matches contents, inputs exist, no duplicate inputs, outputs are positive, and money in equals money out
 - **Double-spend protection:** a spent output is removed from the unspent set, so it cannot be spent again, within a block or across the chain
-- **Unspent set** kept in sync as blocks are added, and rebuilt from the first block whenever the chain is replaced
-- **HTTP API** to view the chain, mine blocks, spend coins and manage peers
+- **Wallets:** each node has its own private key (kept in a git-ignored file) and an address derived from its public key
+- **Signatures:** to spend an output, the owner signs the transaction; every node verifies each signature against the address the output is locked to
+- **Wallet transactions:** the wallet picks enough of its own outputs, pays the receiver, and sends change back to itself
+- **HTTP API** to view the chain, mine blocks, pay other addresses, check balance and manage peers
 - **P2P sync:** several nodes stay in sync over WebSockets
 
 ## Tech stack
@@ -47,7 +48,7 @@ Roughly 60% of the project is finished.
 - TypeScript (strict, ESM, `nodenext`), run with [`tsx`](https://github.com/privatenumber/tsx)
 - Express 5 for the HTTP API
 - [`ws`](https://github.com/websockets/ws) for WebSocket peer connections
-- Node's built-in `node:crypto` for SHA-256 (no hashing dependency)
+- Node's built-in `node:crypto` for SHA-256 hashing and ECDSA (`secp256k1`) signatures, with no crypto dependency
 
 ## Getting started
 
@@ -58,11 +59,11 @@ npm install
 npm run dev
 ```
 
-A node defaults to HTTP port `3001` and P2P port `6001`.
+A node defaults to HTTP port `3001` and P2P port `6001`. On first start it creates a wallet file at `wallet/private_key_<HTTP_PORT>`. That folder is in `.gitignore`: **never commit or share a private key.**
 
 ### Run two nodes
 
-Each node needs its own ports. In two terminals:
+Each node needs its own ports, and so gets its own wallet. In two terminals:
 
 ```bash
 # terminal 1
@@ -72,7 +73,7 @@ HTTP_PORT=3001 P2P_PORT=6001 npm run dev
 HTTP_PORT=3002 P2P_PORT=6002 npm run dev
 ```
 
-Connect node 2 to node 1 (with curl, Bruno, or any HTTP client):
+Connect node 2 to node 1:
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -80,43 +81,48 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:3002/addPeer
 ```
 
-Chains, peers and unspent outputs live in memory only. After restarting a node, run `/addPeer` again.
+Chains, peers and unspent outputs live in memory only. After restarting a node, run `/addPeer` again. The wallet file survives restarts, so the address stays the same.
 
 ### Try the whole flow
 
-1. Mine a block so `dev` earns the 50-coin reward:
+1. Get each node's address:
+
+   ```bash
+   curl http://localhost:3001/address
+   curl http://localhost:3002/address
+   ```
+
+2. Mine a block on node 1. The 50-coin reward goes to node 1's wallet:
+
+   ```bash
+   curl -X POST http://localhost:3001/mineBlock
+   curl http://localhost:3001/balance        # 50
+   ```
+
+3. Pay 20 from node 1 to node 2 (use node 2's address):
 
    ```bash
    curl -X POST -H "Content-Type: application/json" \
-     --data '{"address": "dev"}' http://localhost:3001/mineBlock
-   ```
-
-2. List unspent outputs and copy the `txOutId` of the note owned by `dev`:
-
-   ```bash
-   curl http://localhost:3001/unspentOutputs
-   ```
-
-3. Spend 20 of it to `asha`. A second miner address collects the next reward:
-
-   ```bash
-   curl -X POST -H "Content-Type: application/json" \
-     --data '{"minerAddress":"miner","txOutId":"<ID>","txOutIndex":0,"toAddress":"asha","amount":20}' \
+     --data '{"address": "<NODE 2 ADDRESS>", "amount": 20}' \
      http://localhost:3001/mineTransaction
    ```
 
-4. Check `/unspentOutputs` again: `asha` has 20, `dev` has 30 change, `miner` has 50, and the original 50-coin note is gone. Node 2 shows the same.
+   Node 1 now has 80 (30 change + 50 new reward) and node 2 has 20.
 
-5. Send the same request again: it is rejected, because that note was already spent.
+4. Try to pay more than you own: the request is refused with "Not enough coins".
+
+5. Pay back from node 2 to node 1 and watch both balances update.
 
 ## API
 
 | Method | Endpoint | Body | Description |
 |---|---|---|---|
 | GET | `/blocks` | none | Returns the whole chain |
-| POST | `/mineBlock` | `{ "address": "dev" }` | Mines a block containing only the reward for `address` |
-| POST | `/mineTransaction` | `{ "minerAddress", "txOutId", "txOutIndex", "toAddress", "amount" }` | Spends one unspent output and mines it, with the reward, into a block. **Temporary** testing route, replaced by wallets in Step 6 |
 | GET | `/unspentOutputs` | none | Lists every unspent output (the "notebook") |
+| GET | `/address` | none | This node's wallet address (its public key) |
+| GET | `/balance` | none | Coins owned by this node's wallet |
+| POST | `/mineBlock` | none | Mines a block; the reward goes to this node's wallet |
+| POST | `/mineTransaction` | `{ "address": "...", "amount": 20 }` | Pays `amount` from this node's wallet to `address`, signs it, and mines it into a block with the reward |
 | POST | `/addPeer` | `{ "peer": "ws://host:p2pPort" }` | Connects to another node |
 | GET | `/peers` | none | Lists connected peers |
 
@@ -154,13 +160,12 @@ A chain is valid when it starts with the known genesis block and every block is 
 
 Instead of account balances, the chain tracks **unspent transaction outputs**, like cash notes:
 
-- An **output** (`TxOut`) is a note: an `address` (owner) and an `amount`.
-- An **input** (`TxIn`) points at a note being spent, by `(txOutId, txOutIndex)`: which transaction created it, and which output inside it.
+- An **output** (`TxOut`) is a note: an `address` (the owner's public key) and an `amount`.
+- An **input** (`TxIn`) points at a note being spent, by `(txOutId, txOutIndex)`, and carries the owner's **signature**.
 - A **transaction** spends existing outputs and creates new ones. Total in equals total out; any leftover goes back to the sender as change.
-- The **transaction id** is the SHA-256 of its inputs and outputs, so changing any amount or address is detected.
+- The **transaction id** is the SHA-256 of its inputs and outputs (not the signatures), so changing any amount or address is detected.
 - The **coinbase transaction** is the first transaction in each block. It has one fake input (empty `txOutId`, `txOutIndex` set to the block number so ids stay unique) and creates a fixed 50-coin reward for the miner.
-- The **unspent list** holds every output that exists and is not spent. After each block, spent outputs are removed and new ones added.
-- A **balance** is the sum of the unspent outputs that belong to an address.
+- The **unspent set** holds every output that exists and is not spent. After each block, spent outputs are removed and new ones added. It is rebuilt from the first block whenever the chain is replaced.
 
 A transaction is valid when:
 
@@ -168,9 +173,20 @@ A transaction is valid when:
 2. no input appears twice
 3. every output amount is above zero
 4. every input points at an existing unspent output
-5. total input equals total output
+5. every input carries a valid signature from the owner of that output
+6. total input equals total output
 
 A block's transaction list is valid when the first transaction is a correct coinbase, every other transaction passes the checks above, and no output is spent twice within the block.
+
+### Wallets and signatures
+
+A wallet is a key pair on the `secp256k1` curve (the one Bitcoin uses):
+
+- The **private key** is generated on first start and saved to a git-ignored file. It never leaves the node.
+- The **public key** is derived from it and used as the **address**. It is one-way: the address cannot be turned back into the private key.
+- To spend, the wallet signs the **transaction id** with the private key. Because the id commits to every input and output, changing anything after signing breaks the signature, even if the id is recalculated.
+- Every node verifies each signature against the address stored on the output being spent. A signature from anyone else, or none at all, is rejected.
+- To pay, the wallet selects enough of its own outputs, creates one output for the receiver and one change output for itself, then signs each input.
 
 ### Peer-to-peer messages
 
@@ -194,23 +210,25 @@ Nothing from a peer is trusted; every block and chain is validated first.
 ```
 src/
   blockchain.ts    blocks, hashing, proof of work, difficulty, chain validation and selection, unspent set
-  transaction.ts   transaction classes, ids, coinbase, unspent updates, transaction and block validation
+  transaction.ts   transaction classes, ids, coinbase, unspent updates, signing, transaction and block validation
+  keys.ts          key helpers: derive public key, sign data, verify signature
+  wallet.ts        private key storage, address, balance, building and signing payments
   p2p.ts           WebSocket server, peer connections, messages, broadcasting
   main.ts          Express HTTP API and startup
+wallet/            private key files (git-ignored, never commit)
 ```
 
 ## What is left
 
-1. **Wallet (Step 6):** key pairs, addresses derived from public keys, signing inputs and verifying signatures, so only the owner can spend an output
-2. **Transaction pool (Step 7):** pending transactions waiting to be mined, shared between peers
-3. **Polish (Step 8):** balance and address lookup endpoints, tests
-4. Possible extra: a separate Next.js frontend that talks to a node over HTTP
+1. **Transaction pool (Step 7):** pending transactions waiting to be mined, validated on entry, cleaned after each block, shared between peers over P2P, and mined by miners
+2. **Polish (Step 8):** lookups (address history, transaction by id), tests, cleanup, final documentation
+3. Possible extra: a separate Next.js frontend that talks to a node over HTTP
 
 ## Known limitations
 
-- **No signatures yet:** anyone can spend any output via `/mineTransaction` (fixed by Step 6)
-- Transactions cannot be sent to the network on their own yet; they go straight into a mined block (fixed by Step 7)
-- The chain, peer list and unspent set are in memory only; a restarted node starts from genesis and re-syncs
+- A payment goes straight into a mined block; there is no pool of pending transactions yet (Step 7)
+- The private key is stored as plain hex in a file, with no encryption or password
+- The chain, peer list and unspent set are in memory only; a restarted node starts from genesis and re-syncs (the wallet file is kept)
 - A block cannot spend an output created earlier in the same block
 - No reconnection or heartbeat for dropped peer connections
 - Work is summed with normal numbers; real systems use `BigInt` for very high difficulty
