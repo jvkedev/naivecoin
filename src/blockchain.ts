@@ -6,6 +6,8 @@ import {
   validateBlockTransactions,
 } from "./transaction.js";
 
+import { updateTransactionPool } from "./transactionPool.js";
+
 const BLOCK_GENERATION_INTERVAL = 10;
 const DIFFICULTY_ADJUSTMENT_INTERVAL = 5;
 
@@ -235,6 +237,7 @@ const addBlock = (newBlock: Block): boolean => {
 
   blockchain.push(newBlock);
   UnspentTxOuts = updateUnspentTxOuts(newBlock.data, UnspentTxOuts);
+  updateTransactionPool(UnspentTxOuts);
   return true;
 };
 
@@ -263,6 +266,7 @@ const replaceChain = (newChain: Block[]): boolean => {
 
   blockchain = newChain;
   UnspentTxOuts = buildUnspentTxOuts(newChain);
+  updateTransactionPool(UnspentTxOuts)
 
   return true;
 };

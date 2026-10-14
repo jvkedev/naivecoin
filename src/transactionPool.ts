@@ -1,7 +1,8 @@
 import {
+  doInputsExist,
+  Transaction,
+  UnspentTxOut,
   validateTransaction,
-  type Transaction,
-  type UnspentTxOut,
 } from "./transaction.js";
 
 let transactionPool: Transaction[] = [];
@@ -38,4 +39,16 @@ const addToTransactionPool = (
   return true;
 };
 
-export { getTransactionPool, addToTransactionPool };
+const updateTransactionPool = (unspentTxOut: UnspentTxOut[]): void => {
+  const stillValid: Transaction[] = [];
+
+  for (const tx of transactionPool) {
+    if (doInputsExist(tx, unspentTxOut)) {
+      stillValid.push(tx);
+    }
+  }
+
+  transactionPool = stillValid;
+};
+
+export { getTransactionPool, addToTransactionPool, updateTransactionPool };
