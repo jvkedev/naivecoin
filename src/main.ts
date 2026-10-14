@@ -70,7 +70,7 @@ app.post("/mineBlock", (req, res) => {
   const nextIndex = getLatestBlock().index + 1;
   const coinbase = getCoinbaseTransaction(getPublicFromWallet(), nextIndex);
 
-  const block = mineBlock([coinbase]);
+  const block = mineBlock([coinbase, ...getTransactionPool()]);
 
   if (block === null) {
     return res.status(500).json({
